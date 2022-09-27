@@ -1,9 +1,13 @@
+import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.*;
 import org.lwjgl.opengl.*;
+import org.lwjgl.system.MemoryStack;
 
 import devTools.ProgramTime;
+import gameEngine.RenderTexture;
 import gameEngine.World;
 import shaders.Shader;
+import util.Vector3f;
 import util.Vector3i;
 import camera.Player;
 
@@ -12,13 +16,16 @@ import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL33.*;
 import static org.lwjgl.system.MemoryUtil.*;
 
+import java.nio.ByteBuffer;
+import java.nio.DoubleBuffer;
+
 public class Game {
 
 	// The window handle
 	private long window;
 
 	// The window parameters
-	private int WINDOW_WIDTH = 1500;
+	private int WINDOW_WIDTH = 800;
 	private int WINDOW_HEIGHT = 800;
 	private String WINDOW_NAME = "Simple game";
 	private boolean isFullScreen = false;
@@ -37,6 +44,12 @@ public class Game {
 
 	// Shader
 	private Shader basicShader;
+	private Shader idShader;
+
+	// Render texture
+	private RenderTexture idImage;
+
+	boolean keyLocker = false;
 
 	int previousSecond = -1;
 
@@ -107,6 +120,12 @@ public class Game {
 
 		// Shader
 		basicShader = new Shader("basic");
+		idShader = new Shader("id");
+
+		world.addBloc(new Vector3i(0, 0, 0));
+		world.generateMesh();
+
+		idImage = new RenderTexture(WINDOW_WIDTH, WINDOW_HEIGHT);
 
 		return;
 	}
@@ -126,17 +145,6 @@ public class Game {
 		// player update
 		player.update(window, world.getCenter(), timeSinceLastUpdate);
 
-		int y = (int) programTime.getTimeSinceBeginning();
-		if (previousSecond < y) {
-			previousSecond = y;
-			for (int x = -y; x <= y; x++) {
-				for (int z = -y; z <= y; z++) {
-					world.addBloc(new Vector3i(x, y, z));
-				}
-			}
-			world.generateMesh();
-		}
-
 		return true;
 	}
 
@@ -146,10 +154,61 @@ public class Game {
 		glEnable(GL_CULL_FACE);
 		glFrontFace(GL_CW);
 
+		// Render face id to texture
+		idImage.bind();
+		idShader.start();
+		idShader.setUniformMatrix4fValue("MVP", player.getCamera().getMVPMatrix());
+		world.draw();
+		idShader.stop();
+		glFlush();
+		glFinish();
+
+		// get mouse position and get bloc/face of the bloc under mouse cursor
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+		ByteBuffer pixelColor = BufferUtils.createByteBuffer(4);
+		int mouseXPositionInt = 0;
+		int mouseYPositionInt = 0;
+		try (MemoryStack stack = MemoryStack.stackPush()) {
+			DoubleBuffer mousePositionX = stack.mallocDouble(1);
+			DoubleBuffer mousePositionY = stack.mallocDouble(1);
+			glfwGetCursorPos(window, mousePositionX, mousePositionY);
+			mouseXPositionInt = (int) mousePositionX.get();
+			mouseYPositionInt = (int) mousePositionY.get();
+		} catch (Exception e) {
+			System.exit(-1);
+		}
+
+		// Read texture pixel
+		glReadPixels(
+				mouseXPositionInt,
+				WINDOW_HEIGHT - mouseYPositionInt, 1, 1, GL_RGB,
+				GL_UNSIGNED_BYTE,
+				pixelColor);
+		idImage.unbind();
+
+		int blocID = (pixelColor.get(0) & 0xFF) + 256 * (pixelColor.get(1) & 0xFF)
+				+ 256 * 256 * (pixelColor.get(2) & 0xFF);
+
+		if (blocID != 0 && !keyLocker && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+			world.removeBloc((blocID - 1) / 6);
+			world.generateMesh();
+			keyLocker = true;
+		}
+
+		else if (blocID != 0 && !keyLocker && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+			world.addBlocAbove((blocID - 1) / 6, (blocID - 1) % 6);
+			world.generateMesh();
+			keyLocker = true;
+		}
+
+		else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) != GLFW_PRESS && glfwGetMouseButton(window,
+				GLFW_MOUSE_BUTTON_LEFT) != GLFW_PRESS) {
+			keyLocker = false;
+		}
+
+		// Render normal scene
 		glClearColor(0.0f, 1.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		// Here
 		basicShader.start();
 		basicShader.setUniformMatrix4fValue("MVP", player.getCamera().getMVPMatrix());
 		world.draw();

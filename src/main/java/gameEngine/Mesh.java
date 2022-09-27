@@ -14,6 +14,7 @@ public class Mesh {
     private float[] positions;
     private float[] normals;
     private float[] colors;
+    private float[] ID;
 
     private int nbrOfCubes = 0;
 
@@ -29,8 +30,8 @@ public class Mesh {
     };
 
     private static Vector3f[] cubeNormals = new Vector3f[] {
-            new Vector3f(-1, 0, 0), new Vector3f(1, 0, 0), new Vector3f(0, -1, 0), new Vector3f(0, 1, 0),
-            new Vector3f(0, 0, -1), new Vector3f(0, 0, 1),
+            new Vector3f(1, 0, 0), new Vector3f(-1, 0, 0), new Vector3f(0, 1, 0), new Vector3f(0, -1, 0),
+            new Vector3f(0, 0, 1), new Vector3f(0, 0, -1),
     };
 
     public static Vector3i[] nearCubesSSAO = new Vector3i[] {
@@ -85,31 +86,37 @@ public class Mesh {
         positions = new float[listOfBlocs.size() * 36 * 3];
         normals = new float[listOfBlocs.size() * 36 * 3];
         colors = new float[listOfBlocs.size() * 36 * 3];
+        ID = new float[listOfBlocs.size() * 36];
 
-        int lenght = 0;
+        int length = 0;
         nbrOfCubes = 0;
+        int idCounter = 1; // ID = 0 == void
         for (Vector3i pos : listOfBlocs) {
             for (int faces = 0; faces < 6; faces++) {
                 for (int i = faces * 6; i < faces * 6 + 6; i++) {
 
                     Vector3f vertexPosition = cubeVertices[cubeIndices[i]];
 
-                    positions[3 * lenght + 0] = (float) pos.x + vertexPosition.x;
-                    positions[3 * lenght + 1] = (float) pos.y + vertexPosition.y;
-                    positions[3 * lenght + 2] = (float) pos.z + vertexPosition.z;
+                    positions[3 * length + 0] = (float) pos.x + vertexPosition.x;
+                    positions[3 * length + 1] = (float) pos.y + vertexPosition.y;
+                    positions[3 * length + 2] = (float) pos.z + vertexPosition.z;
 
-                    normals[3 * lenght + 0] = (float) cubeNormals[faces].x;
-                    normals[3 * lenght + 1] = (float) cubeNormals[faces].y;
-                    normals[3 * lenght + 2] = (float) cubeNormals[faces].z;
+                    normals[3 * length + 0] = (float) cubeNormals[faces].x;
+                    normals[3 * length + 1] = (float) cubeNormals[faces].y;
+                    normals[3 * length + 2] = (float) cubeNormals[faces].z;
 
-                    colors[3 * lenght + 0] = (float) 1.0f;
-                    colors[3 * lenght + 1] = (float) 1.0f;
-                    colors[3 * lenght + 2] = (float) 1.0f;
+                    colors[3 * length + 0] = (float) 0.9f;
+                    colors[3 * length + 1] = (float) 0.0f;
+                    colors[3 * length + 2] = (float) 0.7f;
 
-                    lenght++;
+                    ID[length] = (float) idCounter;
+
+                    length++;
 
                 }
+                idCounter++;
             }
+
         }
 
         nbrOfCubes = listOfBlocs.size();
@@ -154,6 +161,13 @@ public class Mesh {
         GL33.glEnableVertexAttribArray(2);
         GL33.glBufferData(GL33.GL_ARRAY_BUFFER, colors, GL33.GL_STATIC_DRAW);
         GL33.glVertexAttribPointer(2, 3, GL33.GL_FLOAT, false, 0, 0);
+        unbindVBO();
+
+        // Fill VBO n 4
+        bindVBO(3);
+        GL33.glEnableVertexAttribArray(3);
+        GL33.glBufferData(GL33.GL_ARRAY_BUFFER, ID, GL33.GL_STATIC_DRAW);
+        GL33.glVertexAttribPointer(3, 1, GL33.GL_FLOAT, false, 0, 0);
         unbindVBO();
 
         // Unbind everything

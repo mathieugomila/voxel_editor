@@ -43,7 +43,7 @@ public class Player {
 		GLFW.glfwGetCursorPos(window, xpos, ypos);
 
 		// Change camera orientation only when right mouse button is clicked
-		if (GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS) {
+		if (GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_MIDDLE) == GLFW.GLFW_PRESS) {
 
 			// centering mouse
 
